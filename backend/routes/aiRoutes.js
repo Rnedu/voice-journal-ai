@@ -1,9 +1,10 @@
 import express from "express";
-import { analyzeEntry } from "../controllers/aiController.js";
+import { transcribeAudio, analyzeEntry } from "../controllers/aiController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.post("/transcribe", authMiddleware, transcribeAudio);
 router.post("/analyze", authMiddleware, analyzeEntry);
 
 export default router;

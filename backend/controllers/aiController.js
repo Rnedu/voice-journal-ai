@@ -1,7 +1,12 @@
 import axios from "axios";
+import dotenv from "dotenv";
 
-// 📌 Process Transcription with Whisper & GPT
-export const analyzeEntry = async (req, res) => {
+dotenv.config();
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// 📌 Whisper API for Transcription
+export const transcribeAudio = async (req, res) => {
   const { audioFileUrl } = req.body;
 
   if (!audioFileUrl) {
@@ -9,8 +14,7 @@ export const analyzeEntry = async (req, res) => {
   }
 
   try {
-    // 🎙️ Step 1: Send to Whisper API for Transcription
-    const whisperResponse = await axios.post(
+    const response = await axios.post(
       "https://api.openai.com/v1/audio/transcriptions",
       {
         file: audioFileUrl,
@@ -18,41 +22,50 @@ export const analyzeEntry = async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
     );
 
-    const transcription = whisperResponse.data.text;
+    const transcription = response.data.text;
+    res.json({ transcription });
+  } catch (err) {
+    console.error("Error transcribing audio:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to process audio transcription." });
+  }
+};
 
-    // 🧠 Step 2: Use GPT-4 for Sentiment Analysis, Summary, and Keywords
-    const gptResponse = await axios.post(
+// 📌 GPT-4 Analysis for Sentiment & Keywords
+export const analyzeEntry = async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: "Text is required." });
+  }
+
+  try {
+    const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4",
         messages: [
-          { role: "system", content: "Analyze this journal entry for sentiment, keywords, and summary." },
-          { role: "user", content: transcription },
+          { role: "system", content: "Analyze the sentiment, keywords, and provide a summary." },
+          { role: "user", content: text },
         ],
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
     );
 
-    const analysis = gptResponse.data.choices[0].message.content;
-
-    res.json({
-      transcription,
-      aiAnalysis: analysis,
-    });
-
+    const analysis = response.data.choices[0].message.content;
+    res.json({ text, analysis });
   } catch (err) {
-    console.error("Error processing AI analysis:", err);
-    res.status(500).json({ error: "AI processing failed." });
+    console.error("Error analyzing entry:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to process AI analysis." });
   }
 };
