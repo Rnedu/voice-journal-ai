@@ -2,6 +2,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import VoiceRecorder from "@/components/VoiceRecorder";
 import axios from "axios";
 
 export default function Dashboard() {
@@ -32,6 +33,7 @@ export default function Dashboard() {
     <div className="flex flex-col items-center justify-center min-h-screen">
       <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
       {user && <p className="text-lg mb-4">Welcome, {user.email}!</p>}
+      <VoiceRecorder />
       <button
         className="bg-red-500 text-white p-2 rounded"
         onClick={() => {
