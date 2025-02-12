@@ -1,37 +1,34 @@
 "use client";
 import { useState } from "react";
-import { ReactMic } from "react-mic";
+import { useReactMediaRecorder } from "react-media-recorder";
 import axios from "axios";
 
 export default function VoiceRecorder() {
-  const [recording, setRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const { startRecording, stopRecording, mediaBlobUrl } = useReactMediaRecorder({ audio: true });
   const [transcription, setTranscription] = useState("");
   const [analyzedText, setAnalyzedText] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const startRecording = () => setRecording(true);
-  const stopRecording = () => setRecording(false);
-
-  const onStop = (recordedBlob: any) => {
-    console.log("Recorded Blob:", recordedBlob);
-    setAudioBlob(recordedBlob.blob);
-  };
-
   const uploadAudio = async () => {
-    if (!audioBlob) return;
-    
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("file", audioBlob, "recording.wav");
+    if (!mediaBlobUrl) return;
 
+    setLoading(true);
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/transcribe`, formData, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+      // Convert URL to Blob
+      const response = await fetch(mediaBlobUrl);
+      const blob = await response.blob();
+      
+      // Prepare file upload
+      const formData = new FormData();
+      formData.append("file", blob, "recording.wav");
+
+      // Send to backend
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/transcribe`, formData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
 
-      setTranscription(response.data.transcription);
-      analyzeText(response.data.transcription);
+      setTranscription(res.data.transcription);
+      analyzeText(res.data.transcription);
     } catch (error) {
       console.error("Error transcribing:", error);
     } finally {
@@ -42,7 +39,7 @@ export default function VoiceRecorder() {
   const analyzeText = async (text: string) => {
     try {
       const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze`, { text }, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setAnalyzedText(response.data.analysis);
     } catch (error) {
@@ -54,23 +51,18 @@ export default function VoiceRecorder() {
     <div className="flex flex-col items-center">
       <h2 className="text-xl font-bold mb-2">Voice Journal</h2>
       
-      <ReactMic
-        record={recording}
-        className="border border-gray-500 rounded-lg w-64 h-20"
-        onStop={onStop}
-        strokeColor="red"
-        backgroundColor="lightgray"
-      />
-      
+      <audio src={mediaBlobUrl} controls className="mt-2 mb-2" />
+
       <div className="mt-4">
-        {!recording ? (
-          <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={startRecording}>🎙 Start Recording</button>
-        ) : (
-          <button className="bg-red-500 text-white px-4 py-2 rounded" onClick={stopRecording}>🛑 Stop Recording</button>
-        )}
+        <button className="bg-green-500 text-white px-4 py-2 rounded mr-2" onClick={startRecording}>
+          🎙 Start Recording
+        </button>
+        <button className="bg-red-500 text-white px-4 py-2 rounded" onClick={stopRecording}>
+          🛑 Stop Recording
+        </button>
       </div>
 
-      {audioBlob && (
+      {mediaBlobUrl && (
         <button className="bg-blue-500 text-white px-4 py-2 rounded mt-4" onClick={uploadAudio} disabled={loading}>
           {loading ? "Processing..." : "Upload & Analyze"}
         </button>
