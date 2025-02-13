@@ -22,10 +22,14 @@ export default function Dashboard() {
   const [sortOrder, setSortOrder] = useState("newest");
   const [filterSentiment, setFilterSentiment] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchEntries = () => {
     const queryParams = new URLSearchParams();
-    if (sortOrder) queryParams.append("sort", sortOrder);
+    queryParams.append("sort", sortOrder);
+    queryParams.append("page", currentPage.toString());
+    queryParams.append("limit", "5"); // Show 5 per page
     if (filterSentiment) queryParams.append("sentiment", filterSentiment);
     if (searchQuery) queryParams.append("search", searchQuery);
 
@@ -33,7 +37,10 @@ export default function Dashboard() {
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/entries?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       })
-      .then((res) => setEntries(res.data.entries))
+      .then((res) => {
+        setEntries(res.data.entries);
+        setTotalPages(res.data.totalPages);
+      })
       .catch((err) => console.error("Error fetching entries:", err));
   };
 
@@ -55,14 +62,14 @@ export default function Dashboard() {
       });
 
     fetchEntries();
-  }, [router, sortOrder, filterSentiment, searchQuery]);
+  }, [router, sortOrder, filterSentiment, searchQuery, currentPage]);
 
   const deleteEntry = async (entryId: string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/entries/${entryId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setEntries(entries.filter((entry) => entry.entry_id !== entryId));
+      fetchEntries();
     } catch (err) {
       console.error("❌ Error deleting entry:", err);
     }
@@ -103,6 +110,7 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* 📖 Journal Entries */}
       <h2 className="text-xl font-bold mt-6">Your Journal Entries</h2>
       <div className="w-full max-w-3xl mt-4 space-y-4">
         {entries.length === 0 ? (
@@ -114,10 +122,29 @@ export default function Dashboard() {
         )}
       </div>
 
-      <button className="bg-red-500 text-white p-2 rounded mt-6" onClick={() => {
-        logout();
-        router.push("/auth/login");
-      }}>
+        {/* ⏩ Pagination Controls (Only Show if More Than 10 Entries) */}
+        {totalPages > 1 && (
+        <div className="mt-4 flex space-x-4">
+            <button
+            className="bg-gray-500 text-white p-2 rounded"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((prev) => prev - 1)}
+            >
+            Previous
+            </button>
+            <span>Page {currentPage} of {totalPages}</span>
+            <button
+            className="bg-gray-500 text-white p-2 rounded"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+            >
+            Next
+            </button>
+        </div>
+        )}
+
+
+      <button className="bg-red-500 text-white p-2 rounded mt-6" onClick={logout}>
         Logout
       </button>
     </div>

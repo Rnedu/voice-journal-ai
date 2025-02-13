@@ -40,10 +40,10 @@ export const createEntry = async (req, res) => {
 };
 
 
-// 📌 Get Journal Entries with Sorting & Filtering
+// 📌 Get Journal Entries with Pagination, Sorting & Filtering
 export const getEntries = async (req, res) => {
   const userId = req.user.id;
-  const { sort, sentiment, search } = req.query; // Get query params
+  const { sort, sentiment, search, page = 1, limit = 10 } = req.query;
 
   let params = {
     TableName: process.env.DYNAMODB_TABLE_ENTRIES,
@@ -76,7 +76,18 @@ export const getEntries = async (req, res) => {
       entries.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     }
 
-    res.json({ entries });
+    // Apply Pagination
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
+    const totalEntries = entries.length;
+    const paginatedEntries = entries.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
+
+    res.json({
+      entries: paginatedEntries,
+      totalEntries,
+      totalPages: Math.ceil(totalEntries / pageSize),
+      currentPage: pageNumber,
+    });
   } catch (err) {
     console.error("❌ Error fetching journal entries:", err);
     res.status(500).json({ error: "Failed to retrieve entries." });
