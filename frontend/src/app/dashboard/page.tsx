@@ -6,6 +6,7 @@ import axios from "axios";
 import JournalEntry from "@/components/JournalEntry";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { toast } from "react-toastify";
+import Link from "next/link";
 
 interface Entry {
   entry_id: string;
@@ -90,7 +91,7 @@ export default function Dashboard() {
       {user && <p className="text-lg mb-4">Welcome, {user.email}!</p>}
 
       {/* 🎙 Add Voice Recorder */}
-      <VoiceRecorder onNewEntry={fetchEntries} />
+      <VoiceRecorder/>
 
       {/* 🔍 Filtering & Sorting Controls */}
       <div className="flex space-x-4 mt-4">
@@ -114,6 +115,13 @@ export default function Dashboard() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
+
+      {/* 📊 Link to Insights Page */}
+      <Link href="/insights">
+        <button className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded mb-4">
+          📊 View Weekly Insights
+        </button>
+      </Link>
 
       {/* 📖 Journal Entries */}
       <h2 className="text-xl font-bold mt-6">Your Journal Entries</h2>

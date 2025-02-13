@@ -1,7 +1,71 @@
 import AWS from "../config/aws.js";
 
-// Initialize DynamoDB
+import OpenAI from "openai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// 📌 Get Weekly Summary & Sentiment Trends
+export const getWeeklyInsights = async (req, res) => {
+  const userId = req.user.id;
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const params = {
+    TableName: process.env.DYNAMODB_TABLE_ENTRIES,
+    FilterExpression: "user_id = :userId AND created_at >= :sevenDaysAgo",
+    ExpressionAttributeValues: {
+      ":userId": userId,
+      ":sevenDaysAgo": sevenDaysAgo.toISOString(),
+    },
+  };
+
+  try {
+    const data = await dynamoDB.scan(params).promise();
+    const entries = data.Items;
+
+    if (entries.length === 0) {
+      return res.json({ message: "No entries this week." });
+    }
+
+    // Sentiment Analysis Breakdown
+    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+    entries.forEach(entry => {
+      if (entry.sentiment) sentimentCounts[entry.sentiment]++;
+    });
+
+    // Generate Weekly Summary with AI
+    const response = await openai.chat.completions.create({
+      model: "gpt-4", // ✅ Ensure we're using GPT-4
+      messages: [
+        { role: "system", content: "You are an AI assistant that summarizes journal entries." },
+        { role: "user", content: `Here are journal entries from the past week: ${entries.map(e => e.transcription).join("\n")}.
+        - Generate a summary of the user's week.
+        - Identify common emotions and themes.
+        - Give one actionable self-improvement tip.` }
+      ],
+      max_tokens: 200,
+    });
+    
+
+    // ✅ Safely handle API response
+    const aiResponse = response.choices?.[0]?.message?.content?.trim() || "AI could not generate insights.";
+
+    return res.json({
+      summary: aiResponse,  // ✅ Now always returns a safe response
+      sentimentCounts,
+      totalEntries: entries.length,
+    });
+  } catch (err) {
+    console.error("❌ Error generating insights:", err);
+    res.status(500).json({ error: "Failed to generate insights." });
+  }
+};
+
 
 // 📌 Get Mood Trends (Sentiment Analysis Over Time)
 export const getMoodTrends = async (req, res) => {
