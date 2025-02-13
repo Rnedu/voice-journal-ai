@@ -106,3 +106,35 @@ export const deleteEntry = async (req, res) => {
     res.status(500).json({ error: "Error deleting entry." });
   }
 };
+
+// 📌 Edit a Journal Entry
+export const updateEntry = async (req, res) => {
+  const { entryId } = req.params;
+  const { transcription, summary, sentiment, tags, keywords } = req.body;
+  const userId = req.user.id;
+
+  const params = {
+    TableName: process.env.DYNAMODB_TABLE_ENTRIES,
+    Key: {
+      user_id: userId,
+      entry_id: entryId,
+    },
+    UpdateExpression: "set transcription = :t, summary = :s, sentiment = :sent, tags = :tags, keywords = :keywords",
+    ExpressionAttributeValues: {
+      ":t": transcription,
+      ":s": summary,
+      ":sent": sentiment,
+      ":tags": tags || [],
+      ":keywords": keywords || [],
+    },
+    ReturnValues: "ALL_NEW",
+  };
+
+  try {
+    const updatedEntry = await dynamoDB.update(params).promise();
+    res.json({ message: "Journal entry updated.", updatedEntry });
+  } catch (err) {
+    console.error("❌ Error updating entry:", err);
+    res.status(500).json({ error: "Failed to update entry." });
+  }
+};
