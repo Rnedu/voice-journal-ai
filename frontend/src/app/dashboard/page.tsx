@@ -19,10 +19,18 @@ export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [sortOrder, setSortOrder] = useState("newest");
+  const [filterSentiment, setFilterSentiment] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchEntries = () => {
+    const queryParams = new URLSearchParams();
+    if (sortOrder) queryParams.append("sort", sortOrder);
+    if (filterSentiment) queryParams.append("sentiment", filterSentiment);
+    if (searchQuery) queryParams.append("search", searchQuery);
+
     axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/entries`, {
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/entries?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       })
       .then((res) => setEntries(res.data.entries))
@@ -47,7 +55,7 @@ export default function Dashboard() {
       });
 
     fetchEntries();
-  }, [router]);
+  }, [router, sortOrder, filterSentiment, searchQuery]);
 
   const deleteEntry = async (entryId: string) => {
     try {
@@ -71,6 +79,29 @@ export default function Dashboard() {
 
       {/* 🎙 Add Voice Recorder */}
       <VoiceRecorder onNewEntry={fetchEntries} />
+
+      {/* 🔍 Filtering & Sorting Controls */}
+      <div className="flex space-x-4 mt-4">
+        <select className="border p-2" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+          <option value="newest">Sort: Newest</option>
+          <option value="oldest">Sort: Oldest</option>
+        </select>
+
+        <select className="border p-2" value={filterSentiment} onChange={(e) => setFilterSentiment(e.target.value)}>
+          <option value="">Filter: All Sentiments</option>
+          <option value="positive">Positive</option>
+          <option value="neutral">Neutral</option>
+          <option value="negative">Negative</option>
+        </select>
+
+        <input
+          type="text"
+          className="border p-2"
+          placeholder="Search entries..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
 
       <h2 className="text-xl font-bold mt-6">Your Journal Entries</h2>
       <div className="w-full max-w-3xl mt-4 space-y-4">

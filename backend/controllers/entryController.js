@@ -39,26 +39,50 @@ export const createEntry = async (req, res) => {
   }
 };
 
-// 📌 Get All Journal Entries for User
+
+// 📌 Get Journal Entries with Sorting & Filtering
 export const getEntries = async (req, res) => {
   const userId = req.user.id;
+  const { sort, sentiment, search } = req.query; // Get query params
 
-  const params = {
+  let params = {
     TableName: process.env.DYNAMODB_TABLE_ENTRIES,
     KeyConditionExpression: "user_id = :userId",
-    ExpressionAttributeValues: {
-      ":userId": userId,
-    },
+    ExpressionAttributeValues: { ":userId": userId },
   };
 
   try {
     const data = await dynamoDB.query(params).promise();
-    res.json({ entries: data.Items });
+    let entries = data.Items;
+
+    // Apply Filtering
+    if (sentiment) {
+      entries = entries.filter(entry => entry.sentiment === sentiment);
+    }
+
+    // Apply Searching
+    if (search) {
+      const searchTerm = search.toLowerCase();
+      entries = entries.filter(entry =>
+        entry.transcription.toLowerCase().includes(searchTerm) ||
+        entry.summary.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply Sorting
+    if (sort === "newest") {
+      entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if (sort === "oldest") {
+      entries.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    }
+
+    res.json({ entries });
   } catch (err) {
-    console.error("Error fetching journal entries:", err);
-    res.status(500).json({ error: "Error retrieving entries." });
+    console.error("❌ Error fetching journal entries:", err);
+    res.status(500).json({ error: "Failed to retrieve entries." });
   }
 };
+
 
 // 📌 Get a Single Journal Entry
 export const getEntryById = async (req, res) => {
