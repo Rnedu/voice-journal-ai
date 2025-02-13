@@ -11,41 +11,52 @@ export default function VoiceRecorder() {
 
   const uploadAudio = async () => {
     if (!mediaBlobUrl) return;
-
+  
     setLoading(true);
     try {
-      // Convert URL to Blob
       const response = await fetch(mediaBlobUrl);
       const blob = await response.blob();
-      
-      // Prepare file upload
+      const file = new File([blob], "recording.wav", { type: "audio/wav" });
+  
       const formData = new FormData();
-      formData.append("file", blob, "recording.wav");
-
-      // Send to backend
+      formData.append("file", file);
+  
+      // Send to backend for transcription
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/transcribe`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+  
+      const transcription = res.data.transcription;
+      setTranscription(transcription);
+  
+      // Analyze the text using AI
+      const analysisRes = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze`, { text: transcription }, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-
-      setTranscription(res.data.transcription);
-      analyzeText(res.data.transcription);
+  
+      setAnalyzedText(analysisRes.data.analysis);
+  
+      // Store the journal entry in the database
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/entries`, {
+        transcription,
+        sentiment: analysisRes.data.sentiment,
+        summary: analysisRes.data.summary,
+        tags: analysisRes.data.tags || [],
+        keywords: analysisRes.data.keywords || [],
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+  
     } catch (error) {
-      console.error("Error transcribing:", error);
+      console.error("❌ Upload Error:", error);
     } finally {
       setLoading(false);
     }
   };
-
-  const analyzeText = async (text: string) => {
-    try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze`, { text }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
-      setAnalyzedText(response.data.analysis);
-    } catch (error) {
-      console.error("Error analyzing:", error);
-    }
-  };
+  
 
   return (
     <div className="flex flex-col items-center">
