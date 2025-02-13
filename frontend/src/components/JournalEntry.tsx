@@ -58,15 +58,16 @@ export default function JournalEntry({ entry, onDelete, onUpdate }: Props) {
 
       <div className="mt-2 flex space-x-2">
         {isEditing ? (
-          <button className="bg-blue-500 text-white p-1 rounded" onClick={saveEdit}>
+          <button className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded transition duration-200" onClick={saveEdit}>
             Save
           </button>
         ) : (
-          <button className="bg-yellow-500 text-white p-1 rounded" onClick={() => setIsEditing(true)}>
+          <button className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded transition duration-200" onClick={() => setIsEditing(true)}>
             Edit
           </button>
         )}
-        <button className="bg-red-500 text-white p-1 rounded" onClick={() => onDelete(entry.entry_id)}>
+        <button 
+        className="bg-red-500 hover:bg-red-700 text-white p-2 rounded transition duration-200" onClick={() => onDelete(entry.entry_id)}>
           Delete
         </button>
       </div>

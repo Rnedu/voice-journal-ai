@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import JournalEntry from "@/components/JournalEntry";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import { toast } from "react-toastify";
 
 interface Entry {
   entry_id: string;
@@ -64,16 +65,20 @@ export default function Dashboard() {
     fetchEntries();
   }, [router, sortOrder, filterSentiment, searchQuery, currentPage]);
 
+
   const deleteEntry = async (entryId: string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/entries/${entryId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
+      toast.success("Journal entry deleted!");
       fetchEntries();
     } catch (err) {
       console.error("❌ Error deleting entry:", err);
+      toast.error("Failed to delete entry.");
     }
   };
+  
 
   const updateEntry = (updatedEntry: Entry) => {
     setEntries(entries.map((entry) => (entry.entry_id === updatedEntry.entry_id ? updatedEntry : entry)));
