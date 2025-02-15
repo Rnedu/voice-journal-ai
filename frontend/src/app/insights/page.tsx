@@ -16,45 +16,69 @@ interface InsightsData {
 
 export default function InsightsPage() {
   const [insights, setInsights] = useState<InsightsData | null>(null);
+  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchInsights = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/analytics/weekly-insights`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setInsights(res.data); // ✅ Now VSCode knows the structure
-      } catch (err) {
-        console.error("Error fetching weekly insights:", err);
-      }
-    };
+  const fetchInsights = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select a date range.");
+      return;
+    }
 
-    fetchInsights();
-  }, []);
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/analytics/insights`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { startDate, endDate },
+      });
+      setInsights(res.data);
+    } catch (err) {
+      console.error("Error fetching insights:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center min-h-screen p-6">
-      <h1 className="text-2xl font-bold mb-4">📊 Weekly Insights</h1>
+      <h1 className="text-2xl font-bold mb-4">📊 Generate Insights</h1>
 
-      {insights ? (
+      {/* Date Pickers */}
+      <div className="flex gap-4 mb-4">
+        <input
+          type="date"
+          className="border px-4 py-2 rounded"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <input
+          type="date"
+          className="border px-4 py-2 rounded"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+        <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={fetchInsights}>
+          {loading ? "Generating..." : "Generate Insights"}
+        </button>
+      </div>
+
+      {/* Show Insights */}
+      {insights && (
         <div className="p-6 border border-gray-300 rounded-lg w-full max-w-xl">
           <p><strong>Summary:</strong> {insights.summary}</p>
-
           <h3 className="font-bold mt-4">Sentiment Breakdown:</h3>
           <p>😊 Positive: {insights.sentimentCounts.positive}</p>
           <p>😐 Neutral: {insights.sentimentCounts.neutral}</p>
           <p>😔 Negative: {insights.sentimentCounts.negative}</p>
-
           <p className="font-bold mt-4">Total Entries: {insights.totalEntries}</p>
         </div>
-      ) : (
-        <p>Loading insights...</p>
       )}
 
       {/* Back to Dashboard Button */}
       <Link href="/dashboard">
-        <button className="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+        <button className="mt-6 bg-gray-500 text-white px-4 py-2 rounded">
           ← Back to Dashboard
         </button>
       </Link>

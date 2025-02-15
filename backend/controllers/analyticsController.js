@@ -8,6 +8,86 @@ dotenv.config();
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+export const getInsightsForPeriod = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+    const userId = req.user.id;
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "Start date and end date are required." });
+    }
+
+    const params = {
+      TableName: process.env.DYNAMODB_TABLE_ENTRIES,
+    };
+
+    const data = await dynamoDB.scan(params).promise();
+    const entries = data.Items.filter(entry =>
+      entry.user_id === userId &&
+      new Date(entry.created_at) >= new Date(startDate) &&
+      new Date(entry.created_at) <= new Date(endDate)
+    );
+
+    if (!entries.length) {
+      return res.json({ message: "No entries found for selected period." });
+    }
+
+    // 📊 Sentiment Breakdown
+    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+    entries.forEach(entry => {
+      if (entry.sentiment) sentimentCounts[entry.sentiment]++;
+    });
+
+    // 🔥 Generate AI Insights
+    const prompt = `Here are journal entries from ${startDate} to ${endDate}: ${entries.map(e => e.transcription).join("\n")}.
+    - Generate a summary of the user's experiences.
+    - Identify common emotions and themes.
+    - Provide one actionable self-improvement tip.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You are an AI assistant that generates insights from journal entries." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 200,
+    });
+
+    const aiSummary = response.choices?.[0]?.message?.content?.trim() || "AI could not generate insights.";
+
+    // ✅ Store insights in DynamoDB for future retrieval
+    const insightId = `${userId}-${startDate}-${endDate}`;
+    const saveParams = {
+      TableName: process.env.DYNAMODB_TABLE_INSIGHTS,
+      Item: {
+        insight_id: insightId,
+        user_id: userId,
+        start_date: startDate,
+        end_date: endDate,
+        summary: aiSummary,
+        sentimentCounts,
+        totalEntries: entries.length,
+        created_at: new Date().toISOString(),
+      },
+    };
+    await dynamoDB.put(saveParams).promise();
+
+    return res.json({
+      summary: aiSummary,
+      sentimentCounts,
+      totalEntries: entries.length,
+    });
+
+  } catch (err) {
+    console.error("❌ Error generating insights:", err);
+    res.status(500).json({ error: "Failed to generate insights." });
+  }
+};
+
+
 // 📌 Get Weekly Summary & Sentiment Trends
 export const getWeeklyInsights = async (req, res) => {
   const userId = req.user.id;
